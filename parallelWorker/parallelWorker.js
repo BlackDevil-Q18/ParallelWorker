@@ -1,4 +1,6 @@
 //define('parallelWorker',[],function(){
+"use strict";
+
 
 var parallelWorker = function(workerJobObject){
 								if(typeof(Worker) != 'undefined'){
@@ -53,7 +55,17 @@ parallelWorker.prototype = {
 				this.listenerCallbackList.push(callback);
 			}
 		},
-		removeAllListeners	: function(){
+		unregisterListener	: function(callback){
+					var filterCallback = function(attachedCallback){
+						return !(attachedCallback===callback);
+					}
+					if(this.status===true){
+						this.worker.listenerCallbackList = this.worker.listenerCallbackList.filter(filterCallback);
+					}else{
+						this.listenerCallbackList = this.listenerCallbackList.filter(filterCallback);
+					}
+		},
+		unregisterAllListeners	: function(){
 					if(this.status===true){
 						this.worker.listenerCallbackList = [];
 					}else{
