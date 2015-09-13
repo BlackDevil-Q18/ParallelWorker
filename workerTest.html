@@ -2,32 +2,141 @@
 <head>
 <script src="parallelWorker/parallelJob.js"></script>
 <script src="parallelWorker/parallelWorker.js"></script>
+<script src="parallelWorker/workerPool.js"></script>
 </head>
 <body>
 <script>
+// "use strict";
 
+
+var jobExecutor2 = function(data){
+console.log(data);
+	
+	return data.test;
+}						
+						
 var jobExecutor = function(data){
-	console.log(JSON.stringify(data));
-	this.postMessage({result:'result true'});
+console.log(data);
+	var newJob;
+	var result = "test";
+	/*if(newJob){
+		result = newJob();
+	}*/
+	
+	for(var i=0;i<1000;i++){
+		// console.log(i);
+		var k = 10+i;
+	}
+	//console.log(i);
+	return data.test;
 }
 
 
-var callback = function(data){
-	alert("recieved data back"+JSON.stringify(data));
+
+
+var callback1 = function(data){
+	alert("recieved 11111111111111 data back"+JSON.stringify(data));
+}
+
+var callback2 = function(data){
+	alert("recieved 222222222222 data back"+JSON.stringify(data));
 }
 
 
+var callback3 = function(data){
+	alert("recieved 333333333333 data back"+JSON.stringify(data));
+}
+
+var callback4 = function(data){
+	alert("recieved 444444444444 data back"+JSON.stringify(data));
+}
+
+var callback5 = function(data){
+	alert("recieved 555555555555 data back"+JSON.stringify(data));
+}
+
+var listenerArray = [];
+listenerArray.push(callback1);
+var jobPool = [
+				{
+					jobName:'job11',
+					job:jobExecutor,
+					listenerList:[callback1]
+					},
+					{
+					jobName:'job22',
+					job:jobExecutor,
+					postPublishDestroy:true,
+					listenerList:[callback3]
+					}];
+					
+var _workerPool = new workerPool(jobPool);
+		
+
+var jobPool2 = [
+				{
+					jobName:'job11',
+					job:jobExecutor2,
+					listenerList:[callback2]
+					}];
+					
+var _workerPool2 = new workerPool(jobPool2);
+
+
+console.log(_workerPool.job11);		
+/*
 var options = {
 				jobName : 'testJOB',
-				onmessage : jobExecutor
+				onmessage : jobExecutor,
+				timeLimit : 2000
 				}
 var _parent = document?document.body:window;
+
+
 var parallelJOB1 = new parallelJob(options,_parent);
 
 var parallelWORKER = new parallelWorker(parallelJOB1);
-parallelWORKER.registerListener(callback);
-parallelWORKER.dispatchMessage({test:'testData'});
+
+
+parallelWORKER.registerListener(callback1);
+parallelWORKER.registerListener(callback2);
+*/
+// parallelWORKER.registerListener(callback3);
+	//parallelWORKER.unregisterListener(callback2);
+//parallelWORKER.dispatchMessage({test:'testData'});
+
+
+function dispatchToWorker(){
+	_workerPool.job11.dispatchMessage({test:'testDatanewnewnew'});
+	_workerPool.job22.dispatchMessage({test:'testDatanewnewnew'});
+	_workerPool2.job11.dispatchMessage({test:'2 worker'});
+}
+
+
+function updateJob(){
+		var jobPool = [
+						{
+							jobName:'job11',
+							job:jobExecutor,
+							//postPublishDestroy:true,
+							listenerList:[callback5]
+							}];
+							
+		_workerPool.updateWorker(jobPool);
+}
+
+
+function killWorkerPool(){
+	_workerPool.destroyPool();
+}
+
 
 </script>
+
+
+<input type="button" onClick="updateJob()">upodate</input>
+<input type="button" onClick="dispatchToWorker()">dispatch</input>
+<input type="button" onClick="killWorkerPool()">DestroyPool</input>
+
 </body>
 </html>
