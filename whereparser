@@ -1,0 +1,338 @@
+<head>
+<script type="text/javascript">
+
+function process(){
+	var resultDiv = document.getElementById('resultDiv');
+	var story = document.getElementById('storyBoard').value;
+	resultDiv.innerHTML = JSON.stringify(parseStory(story));
+}
+
+
+
+function parseStory(story){
+	var factorizedStory = seperationOfConcern(story);
+	var parsedStory = {};
+	parsedStory.type = fetchStatementParser(factorizedStory.governingTYPEStatement);
+	parsedStory.where = whereConditionParser(factorizedStory.whereConditionStatement);
+
+	return parsedStory;
+}
+
+
+
+function seperationOfConcern(story){
+	var factorizedStory = {};
+	factorizedStory.governingTYPEStatement = readGTStatement(story).factorized;	
+	var whereCondition = readWhereStatement(factorizedStory.governingTYPEStatement);
+	factorizedStory.governingTYPEStatement = whereCondition.story;
+	factorizedStory.whereConditionStatement = whereCondition.factorized;	
+	return factorizedStory;	
+}
+
+
+var govTypeKeywords = ['All','All my','List','List all','List of all','List all my'];
+var whereStatementKeywords = ["who's","who has","where"];
+govTypeKeywords.reverse();
+whereStatementKeywords.reverse();
+function readGTStatement(story){
+	return factorizeStatement(story,govTypeKeywords);
+}
+
+function factorizeStatement(story,factorList){
+	var _stat = "";
+	for(var k=0;k<factorList.length;k++){
+		if(story.indexOf(factorList[k])!=-1){
+			//story.splice(story.indexOf(factorList[k])+factorList[k].length,story.length);
+			_stat = story.substr(story.indexOf(factorList[k])+factorList[k].length,story.length);
+			story = story.substr(0,story.indexOf(factorList[k]));
+			story = story.trim();
+		}
+	}
+	return {story:story,factorized:_stat.trim()};
+}
+
+function readWhereStatement(story){
+	return factorizeStatement(story,whereStatementKeywords);
+}
+
+function fetchStatementParser(statement){
+	return statement;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var clauseKeywords = ['AND','and','OR','or'];
+var verbKeywords   = ['is','is not','are','are not'];
+var _SPACE 		   = " ";
+var _closeBRACKET	= ")";
+var _openBRACKET	= "(";
+var verbOperatorMap = {
+						'is':'==',
+						'is not':'!=',
+						'are':'ARE',
+						'are not':'ARE NOT'
+						}
+var clauseOperatorMap = {
+						'AND':'&&',
+						'OR':"||",
+						'and':'&&',
+						'or':'||'
+						}
+function whereConditionParser(story){
+	//return parseElementryStatement(story);
+	var charArray = story.split("");
+	return processStory(charArray);
+}
+
+var resolveKeyMap = {};
+
+function processStory(charArray){
+	var resultStack = [];
+	for(var i =0;i<charArray.length;i++){
+		var val = charArray[i];
+		if(_closeBRACKET==val){
+			var childStatement = popChildStatement(resultStack);
+			var tempResolvedSol = parseChildStatement(childStatement);
+			resolveKeyMap['resolved'+i] = tempResolvedSol;
+			resultStack.push('resolved'+i);
+			//resultStack.push(new constantToken(constant));
+		}else{
+			resultStack.push(charArray[i]);		
+		}
+	}
+		var result = parseChildStatement(resultStack.join(""));
+		//var constant = popConstant(resultStack);
+		//	resultStack.push(new constantToken(constant));
+		console.log(resolveKeyMap);
+		result = substituteResolveKeyValue(result,resolveKeyMap);
+	return result;// parseElementryStatement(resultStack);
+}
+
+
+
+
+function substituteResolveKeyValue(_stat,resolveKeyMap){
+	var keys = Object.keys(resolveKeyMap);
+	var result = _stat;
+	for(var i=0;i<keys.length;i++){
+		if(_stat.indexOf(keys[i])!=-1){
+			var tempResolvStr = _stat.replace(keys[i],resolveKeyMap[keys[i]]);
+			delete resolveKeyMap[keys[i]];
+			result = substituteResolveKeyValue(tempResolvStr,resolveKeyMap);
+			break;
+		}
+	}
+	return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function parseChildStatement(childStatement){
+	var statementTokens = childStatement.split(" ");
+	var elemStatementList = [];
+	
+	//clauseKeywords.forEach(function(clause){
+	/*	for(var l=0;l<clauseKeywords.length;l++){
+
+		}
+		var clauseElemStatements = [];
+		var state1 = "";
+		clauseElemStatements = childStatement.split(clause);
+*/
+	//});
+	var result = fetchElemStatementList(childStatement,clauseKeywords);
+	var result2 = resolvedElemStatements(result);
+
+
+	return result2;//parseElementryStatement(childStatement);
+}
+function resolvedElemStatements(elemStatementObject){
+	var resolvedCond = "";
+	if(elemStatementObject.childStatement ){
+		if(elemStatementObject.op && typeof elemStatementObject.childStatement == 'object'){
+				var resolvedArr = elemStatementObject.childStatement.map(function(_childStatementObj){
+						return resolvedElemStatements(_childStatementObj);
+				});
+				resolvedCond = "("+resolvedArr.join(elemStatementObject.op)+")";
+		}else{
+			resolvedCond = parseElementryStatement(elemStatementObject.childStatement);
+		}
+	}
+	return resolvedCond;
+}
+
+function fetchElemStatementList(childStatement,clauseArray){
+	//var elementArray = [];
+	var elemStatementObject = {};
+	elemStatementObject.childStatement = childStatement;
+	for(var m=0;m<clauseArray.length;m++){
+		var op = clauseArray[m];
+		if(childStatement.indexOf(op)!=-1){
+			var statements = childStatement.split(op);
+				var childStatementObjectList = statements.map(function(_statement){
+					return fetchElemStatementList(_statement,clauseArray.slice(1,(clauseArray.length)));
+				})
+				 
+			elemStatementObject.childStatement = childStatementObjectList;
+			elemStatementObject.op 			   = getClauseOperator(op);
+			break;
+		}
+	}
+
+	//elementArray.push(elemStatementObject);
+	return elemStatementObject;
+}
+
+function popChildStatement(stack){
+	var val = "";
+	var childStatement = [];
+	val = stack.pop();
+	while(stack.length>0 && val!=_openBRACKET){		
+		childStatement.push(val);
+		val = stack.pop();
+	}
+
+	return childStatement.reverse().join("");
+}
+
+var constantToken = function(constantVal){
+			return {
+					val : constantVal
+			};
+}
+
+function popConstant(resultStack){
+	var constantArray = [];
+	while(resultStack.length>0){
+		var val = resultStack.pop();
+		if(_SPACE == val){
+			return constantArray.reverse().join("");
+		}else{
+		constantArray.push(val);		
+		}
+	}
+	return constantArray.reverse().join("");
+}
+
+
+function parseElementryStatement(elmStatement){
+	if(typeof elmStatement == 'array'){
+		return processElementoryStatement(elmStatement);
+	}else if(typeof elmStatement == 'string'){
+		var elemArray = elmStatement.split(" ");
+		return processElementoryStatement(elemArray);
+	}
+
+}
+
+
+
+
+
+
+
+
+function getVerbOperator(verb){
+	return verbOperatorMap[verb.trim()]?verbOperatorMap[verb.trim()]:"";
+}
+
+function getClauseOperator(clause){
+	return clauseOperatorMap[clause.trim()]?clauseOperatorMap[clause.trim()]:clause;
+}
+
+
+
+
+
+
+function processElementoryStatement(elmStatementArray){
+	var subject = "";
+			var object	= "";
+				var verb  = "";
+				var elemstr = elmStatementArray.join(" ");
+				subject = elemstr;
+	/*	for(var i=0;i<elmStatementArray.length;i++){
+			var val = elmStatementArray[i];
+			if(verbKeywords.indexOf(val)!=-1){
+				verb = val;
+					object.push(elmStatementArray.slice(i+1,elmStatementArray.length));
+					break;
+			}else{
+				subject.push(val);
+			}
+
+		}*/
+		for(var j=0;j<verbKeywords.length;j++){
+			if(elemstr.indexOf(verbKeywords[j])!=-1){
+				var temp = elemstr.split(verbKeywords[j]);
+				subject = temp[0];
+				verb = verbKeywords[j];
+				object = temp[1];
+			}
+		}
+		var verb = getVerbOperator(verb);
+
+		if("ARE"==verb || "ARE NOT"==verb){
+			return mqlAREString(subject,verb,object);
+		}else{
+			return mqlISString(subject,verb,object);
+		}
+}
+function mqlISString(subject,verb,object){
+	//var mqlCond = 
+	return "("+subject.trim()+verb+object.trim()+")";
+}
+
+function mqlAREString(subject,verb,object){
+	//var mqlCond = 
+	var objectValArray = object.split(",");
+	var op = "";
+	var verbOP = verb;
+	if("ARE"==verb){
+		op = "||";
+		verbOP = "==";
+	}else if("ARE NOT"==verb){
+		op = "&&";
+		verbOP="!=";
+	}
+	var value = "";
+	objectValArray.forEach(function(objVal){
+		if(""!=value){
+			value=value+op;
+		}
+		value = value + "("+subject.trim()+verbOP+objVal.trim()+")"
+	})
+	return "("+value+")";
+}
+
+</script>
+</head>
+<body>
+
+	<textarea id="storyBoard" style="width:100%">All my task where owner is q18</textarea>
+	<button onClick="process()">Convert</button>
+<div id="resultDiv">
+
+</div>
+
+</body>
